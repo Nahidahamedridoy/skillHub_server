@@ -1,0 +1,56 @@
+import { Request, Response } from "express";
+import { registerUser, loginUser } from "../services/auth.service.js";
+
+export async function register(req: Request, res: Response) {
+  try {
+    const result = await registerUser(req.body);
+
+    res.status(201).json({
+      success: true,
+      message: "Registration successful",
+      data: result,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function login(req: Request, res: Response) {
+  try {
+    const { token, user } = await loginUser(req.body);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: user,
+    });
+  } catch (error: any) {
+    res.status(401).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export function logout(_req: Request, res: Response) {
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Logout successful",
+  });
+}
