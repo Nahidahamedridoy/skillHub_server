@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { ObjectId } from "mongodb";
 import { usersCollection } from "../models/user.model.js";
 
 interface RegisterUser {
@@ -46,6 +47,25 @@ interface LoginUser {
   password: string;
 }
 
+export async function getCurrentUser(userId: string) {
+  const user = await usersCollection().findOne(
+    {
+      _id: new ObjectId(userId),
+    },
+    {
+      projection: {
+        password: 0,
+      },
+    }
+  );
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  return user;
+}
+
 export async function loginUser(credentials: LoginUser) {
   const { email, password } = credentials;
 
@@ -75,7 +95,7 @@ export async function loginUser(credentials: LoginUser) {
   }
 
   const token = jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    { id: user._id, name: user.name, email: user.email, role: user.role },
     secret,
     { expiresIn: "7d" }
   );

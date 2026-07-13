@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import courseRoutes from "./routes/course.routes.js";
 
 import authRoutes from "./routes/auth.routes.js";
 
@@ -15,5 +16,6 @@ app.get("/", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/courses", courseRoutes);
 
 export default app;

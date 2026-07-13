@@ -1,0 +1,193 @@
+import { ObjectId } from "mongodb";
+import { coursesCollection } from "../models/course.model.js";
+import { Course } from "../types/course.types.js";
+
+interface CreateCourseInput {
+  title: string;
+  thumbnail: string;
+  shortDescription: string;
+  description: string;
+  category: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+  price: number;
+  duration: string;
+  lessons?: string[];
+  requirements?: string[];
+  outcomes?: string[];
+  instructorId: string;
+  instructorName: string;
+}
+
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+export async function createCourse(input: CreateCourseInput) {
+  const {
+    title,
+    thumbnail,
+    shortDescription,
+    description,
+    category,
+    level,
+    price,
+    duration,
+    lessons = [],
+    requirements = [],
+    outcomes = [],
+    instructorId,
+    instructorName,
+  } = input;
+
+  // Validate required fields
+  if (
+    !title ||
+    !thumbnail ||
+    !shortDescription ||
+    !description ||
+    !category ||
+    !level ||
+    price === undefined ||
+    price === null ||
+    !duration
+  ) {
+    throw new Error("All required fields must be provided");
+  }
+
+  if (typeof price !== "number" || price < 0) {
+    throw new Error("Price must be a non-negative number");
+  }
+
+  const validLevels = ["Beginner", "Intermediate", "Advanced"];
+  if (!validLevels.includes(level)) {
+    throw new Error("Level must be one of: Beginner, Intermediate, Advanced");
+  }
+
+  // Generate unique slug
+  let slug = generateSlug(title);
+  let isUnique = false;
+  let counter = 0;
+
+  while (!isUnique) {
+    const existing = await coursesCollection().findOne({ slug });
+    if (!existing) {
+      isUnique = true;
+    } else {
+      counter++;
+      slug = `${generateSlug(title)}-${counter}`;
+    }
+  }
+
+  const now = new Date();
+
+  const course: Course = {
+    title,
+    slug,
+    thumbnail,
+    shortDescription,
+    description,
+    category,
+    level,
+    price,
+    duration,
+    lessons,
+    requirements,
+    outcomes,
+    instructorId: new ObjectId(instructorId),
+    instructorName,
+    status: "pending",
+    totalStudents: 0,
+    averageRating: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const result = await coursesCollection().insertOne(course);
+
+  return {
+    _id: result.insertedId,
+    ...course,
+  };
+}
+
+export interface GetCoursesFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  title?: string;
+  category?: string;
+  level?: string;
+  sortByPrice?: "asc" | "desc";
+}
+
+export async function getCourses(filters: GetCoursesFilters) {
+  const { page = 1, limit = 10, search, title, category, level, sortByPrice } = filters;
+
+  const query: any = { status: "approved" };
+
+  const searchVal = search || title;
+  if (searchVal) {
+    query.title = { $regex: searchVal, $options: "i" };
+  }
+
+  if (category) {
+    query.category = category;
+  }
+
+  if (level) {
+    query.level = level;
+  }
+
+  const sort: any = {};
+  if (sortByPrice) {
+    sort.price = sortByPrice === "desc" ? -1 : 1;
+  } else {
+    sort.createdAt = -1; // default sort
+  }
+
+  const pageNum = Math.max(1, page);
+  const limitNum = Math.max(1, limit);
+  const skip = (pageNum - 1) * limitNum;
+
+  const total = await coursesCollection().countDocuments(query);
+  const courses = await coursesCollection()
+    .find(query)
+    .sort(sort)
+    .skip(skip)
+    .limit(limitNum)
+    .toArray();
+
+  const totalPages = Math.ceil(total / limitNum);
+
+  return {
+    courses,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total,
+      totalPages,
+    },
+  };
+}
+
+export async function getSingleCourse(id: string) {
+  if (!ObjectId.isValid(id)) {
+    throw new Error("Invalid course id");
+  }
+
+  const course = await coursesCollection().findOne({
+    _id: new ObjectId(id),
+    status: "approved",
+  });
+
+  if (!course) {
+    throw new Error("Course not found");
+  }
+
+  return course;
+}
