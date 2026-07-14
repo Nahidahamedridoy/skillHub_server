@@ -49,11 +49,25 @@ export async function registerUser(user: RegisterUser) {
     createdAt: new Date(),
   });
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET is not configured");
+  }
+
+  const token = jwt.sign(
+    { id: result.insertedId, name, email, role },
+    secret,
+    { expiresIn: "7d" }
+  );
+
   return {
-    id: result.insertedId,
-    name,
-    email,
-    role,
+    token,
+    user: {
+      _id: result.insertedId,
+      name,
+      email,
+      role,
+    },
   };
 }
 

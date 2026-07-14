@@ -39,6 +39,8 @@ export async function getCoursesHandler(req: Request, res: Response) {
     const title = req.query.title as string;
     const category = req.query.category as string;
     const level = req.query.level as string;
+    const status = req.query.status as string;
+    const instructorId = req.query.instructorId as string;
 
     const sortParam = req.query.sort as string;
     const priceParam = req.query.price as string;
@@ -61,6 +63,8 @@ export async function getCoursesHandler(req: Request, res: Response) {
       title,
       category,
       level,
+      status,
+      instructorId,
       sortByPrice,
     });
 

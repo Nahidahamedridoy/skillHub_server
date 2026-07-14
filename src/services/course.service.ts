@@ -122,13 +122,26 @@ export interface GetCoursesFilters {
   title?: string;
   category?: string;
   level?: string;
+  instructorId?: string;
+  status?: string;
   sortByPrice?: "asc" | "desc";
 }
 
 export async function getCourses(filters: GetCoursesFilters) {
-  const { page = 1, limit = 10, search, title, category, level, sortByPrice } = filters;
+  const { page = 1, limit = 10, search, title, category, level, instructorId, status, sortByPrice } = filters;
 
-  const query: any = { status: "approved" };
+  const query: any = {};
+
+  if (status) {
+    query.status = status;
+  } else if (!instructorId) {
+    // If not querying an instructor's specific panel list, default to approved only
+    query.status = "approved";
+  }
+
+  if (instructorId && ObjectId.isValid(instructorId)) {
+    query.instructorId = new ObjectId(instructorId);
+  }
 
   const searchVal = search || title;
   if (searchVal) {

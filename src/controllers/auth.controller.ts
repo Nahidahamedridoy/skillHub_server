@@ -3,12 +3,20 @@ import { registerUser, loginUser , getCurrentUser } from "../services/auth.servi
 
 export async function register(req: Request, res: Response) {
   try {
-    const result = await registerUser(req.body);
+    const { token, user } = await registerUser(req.body);
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     res.status(201).json({
       success: true,
       message: "Registration successful",
-      data: result,
+      data: user,
     });
   } catch (error: any) {
     res.status(400).json({
@@ -26,6 +34,7 @@ export async function login(req: Request, res: Response) {
       httpOnly: true,
       secure: false,
       sameSite: "lax",
+      path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -47,6 +56,7 @@ export function logout(_req: Request, res: Response) {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
+    path: "/",
   });
 
   res.status(200).json({
