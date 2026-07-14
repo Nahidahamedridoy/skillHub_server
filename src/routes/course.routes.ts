@@ -4,6 +4,7 @@ import {
   getCoursesHandler,
   getSingleCourseHandler,
   updateCourseHandler,
+  deleteCourseHandler,
 } from "../controllers/course.controller.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { verifyRole } from "../middleware/role.middleware.js";
@@ -22,9 +23,16 @@ router.get("/:id", getSingleCourseHandler);
 
 router.patch(
   "/:id",
-  verifyToken, // যদি টোকেন ভেরিফাই করতে চান
-  verifyRole("instructor"), // যদি শুধু ইন্সট্রাক্টর আপডেট করতে পারে
+  verifyToken,
+  verifyRole("instructor"),
   updateCourseHandler
+);
+
+router.delete(
+  "/:id",
+  verifyToken,
+  verifyRole("instructor"),
+  deleteCourseHandler
 );
 
 export default router;

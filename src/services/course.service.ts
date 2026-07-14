@@ -191,3 +191,165 @@ export async function getSingleCourse(id: string) {
 
   return course;
 }
+
+export interface UpdateCourseInput {
+  title?: string;
+  thumbnail?: string;
+  shortDescription?: string;
+  description?: string;
+  category?: string;
+  level?: "Beginner" | "Intermediate" | "Advanced";
+  price?: number;
+  duration?: string;
+  lessons?: string[];
+  requirements?: string[];
+  outcomes?: string[];
+}
+
+export async function updateCourse(id: string, instructorId: string, input: UpdateCourseInput) {
+  if (!ObjectId.isValid(id)) {
+    throw new Error("Course not found");
+  }
+
+  const courseId = new ObjectId(id);
+  const course = await coursesCollection().findOne({ _id: courseId });
+
+  if (!course) {
+    throw new Error("Course not found");
+  }
+
+  if (course.instructorId.toString() !== instructorId) {
+    throw new Error("Unauthorized");
+  }
+
+  const updateData: any = {};
+
+  if (input.title !== undefined) {
+    if (!input.title.trim()) {
+      throw new Error("Title cannot be empty");
+    }
+    updateData.title = input.title;
+
+    if (input.title !== course.title) {
+      let slug = generateSlug(input.title);
+      let isUnique = false;
+      let counter = 0;
+
+      while (!isUnique) {
+        const existing = await coursesCollection().findOne({
+          slug,
+          _id: { $ne: courseId },
+        });
+        if (!existing) {
+          isUnique = true;
+        } else {
+          counter++;
+          slug = `${generateSlug(input.title)}-${counter}`;
+        }
+      }
+      updateData.slug = slug;
+    }
+  }
+
+  if (input.thumbnail !== undefined) {
+    if (!input.thumbnail.trim()) {
+      throw new Error("Thumbnail cannot be empty");
+    }
+    updateData.thumbnail = input.thumbnail;
+  }
+
+  if (input.shortDescription !== undefined) {
+    if (!input.shortDescription.trim()) {
+      throw new Error("Short description cannot be empty");
+    }
+    updateData.shortDescription = input.shortDescription;
+  }
+
+  if (input.description !== undefined) {
+    if (!input.description.trim()) {
+      throw new Error("Description cannot be empty");
+    }
+    updateData.description = input.description;
+  }
+
+  if (input.category !== undefined) {
+    if (!input.category.trim()) {
+      throw new Error("Category cannot be empty");
+    }
+    updateData.category = input.category;
+  }
+
+  if (input.level !== undefined) {
+    const validLevels = ["Beginner", "Intermediate", "Advanced"];
+    if (!validLevels.includes(input.level)) {
+      throw new Error("Level must be one of: Beginner, Intermediate, Advanced");
+    }
+    updateData.level = input.level;
+  }
+
+  if (input.price !== undefined) {
+    if (typeof input.price !== "number" || input.price < 0) {
+      throw new Error("Price must be a non-negative number");
+    }
+    updateData.price = input.price;
+  }
+
+  if (input.duration !== undefined) {
+    if (!input.duration.trim()) {
+      throw new Error("Duration cannot be empty");
+    }
+    updateData.duration = input.duration;
+  }
+
+  if (input.lessons !== undefined) {
+    if (!Array.isArray(input.lessons)) {
+      throw new Error("Lessons must be an array");
+    }
+    updateData.lessons = input.lessons;
+  }
+
+  if (input.requirements !== undefined) {
+    if (!Array.isArray(input.requirements)) {
+      throw new Error("Requirements must be an array");
+    }
+    updateData.requirements = input.requirements;
+  }
+
+  if (input.outcomes !== undefined) {
+    if (!Array.isArray(input.outcomes)) {
+      throw new Error("Outcomes must be an array");
+    }
+    updateData.outcomes = input.outcomes;
+  }
+
+  // Always update updatedAt
+  updateData.updatedAt = new Date();
+
+  await coursesCollection().updateOne(
+    { _id: courseId },
+    { $set: updateData }
+  );
+
+  const updatedCourse = await coursesCollection().findOne({ _id: courseId });
+  return updatedCourse;
+}
+
+export async function deleteCourse(id: string, instructorId: string) {
+  if (!ObjectId.isValid(id)) {
+    throw new Error("Course not found");
+  }
+
+  const courseId = new ObjectId(id);
+  const course = await coursesCollection().findOne({ _id: courseId });
+
+  if (!course) {
+    throw new Error("Course not found");
+  }
+
+  if (course.instructorId.toString() !== instructorId) {
+    throw new Error("Unauthorized");
+  }
+
+  await coursesCollection().deleteOne({ _id: courseId });
+}
+

@@ -3,18 +3,33 @@ import jwt from "jsonwebtoken";
 import { ObjectId } from "mongodb";
 import { usersCollection } from "../models/user.model.js";
 
+type UserRole = "student" | "instructor";
+
+const ALLOWED_ROLES: UserRole[] = ["student", "instructor"];
+
 interface RegisterUser {
   name: string;
   email: string;
   password: string;
+  role?: string;
 }
 
 export async function registerUser(user: RegisterUser) {
-  const { name, email, password } = user;
+  const { name, email, password, role: rawRole } = user;
 
   if (!name || !email || !password) {
     throw new Error("All fields are required");
   }
+
+  // Role validation
+  if (rawRole === "admin") {
+    throw new Error("Admin registration is not allowed");
+  }
+
+  const role: UserRole =
+    rawRole && ALLOWED_ROLES.includes(rawRole as UserRole)
+      ? (rawRole as UserRole)
+      : "student";
 
   const existingUser = await usersCollection().findOne({ email });
 
@@ -30,7 +45,7 @@ export async function registerUser(user: RegisterUser) {
     name,
     email,
     password: hashedPassword,
-    role: "student",
+    role,
     createdAt: new Date(),
   });
 
@@ -38,7 +53,7 @@ export async function registerUser(user: RegisterUser) {
     id: result.insertedId,
     name,
     email,
-    role: "student",
+    role,
   };
 }
 
