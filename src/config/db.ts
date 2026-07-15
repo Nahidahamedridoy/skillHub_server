@@ -7,7 +7,7 @@ export async function connectDB() {
   const uri = process.env.DB_URI;
 
   if (!uri) {
-    throw new Error("❌ DB_URI is missing in .env");
+    throw new Error("DB_URI is missing.");
   }
 
   client = new MongoClient(uri, {
@@ -18,8 +18,9 @@ export async function connectDB() {
     },
   });
 
-  // await client.connect();
-  // await client.db("admin").command({ ping: 1 });
+  // ✅ এগুলো uncomment করো
+  await client.connect();
+  await client.db("admin").command({ ping: 1 });
 
   db = client.db("skill_hub");
 
