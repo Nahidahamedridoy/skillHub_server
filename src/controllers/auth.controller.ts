@@ -5,21 +5,25 @@ import {
   getCurrentUser,
 } from "../services/auth.service.js";
 
-const isProduction = process.env.NODE_ENV === "production";
+function getCookieOptions(req: Request) {
+  const isProduction = process.env.NODE_ENV === "production";
+  const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+  const secure = isProduction && isSecure;
+
+  return {
+    httpOnly: true,
+    secure: secure,
+    sameSite: (secure ? "none" : "lax") as "none" | "lax",
+    path: "/",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  };
+}
 
 export async function register(req: Request, res: Response) {
   try {
     const { token, user } = await registerUser(req.body);
 
-    const isProduction = process.env.NODE_ENV === "production";
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, getCookieOptions(req));
 
     return res.status(201).json({
       success: true,
@@ -42,13 +46,7 @@ export async function login(req: Request, res: Response) {
   try {
     const { token, user } = await loginUser(req.body);
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? "none" : "lax",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, getCookieOptions(req));
 
     return res.status(200).json({
       success: true,
@@ -66,13 +64,9 @@ export async function login(req: Request, res: Response) {
   }
 }
 
-export function logout(_req: Request, res: Response) {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "none" : "lax",
-    path: "/",
-  });
+export function logout(req: Request, res: Response) {
+  const { maxAge, ...clearOptions } = getCookieOptions(req);
+  res.clearCookie("token", clearOptions);
 
   return res.status(200).json({
     success: true,
