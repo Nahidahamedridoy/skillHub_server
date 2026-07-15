@@ -11,6 +11,8 @@ export async function register(req: Request, res: Response) {
   try {
     const { token, user } = await registerUser(req.body);
 
+    const isProduction = process.env.NODE_ENV === "production";
+
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,
@@ -27,6 +29,7 @@ export async function register(req: Request, res: Response) {
   } catch (error: any) {
     console.error("REGISTER ERROR:");
     console.error(error);
+    console.error(error?.stack);
 
     return res.status(400).json({
       success: false,
