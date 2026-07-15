@@ -18,8 +18,8 @@ export async function connectDB() {
     },
   });
 
-  await client.connect();
-  await client.db("admin").command({ ping: 1 });
+  // await client.connect();
+  // await client.db("admin").command({ ping: 1 });
 
   db = client.db("skill_hub");
 
