@@ -1,38 +1,35 @@
 import { Db, MongoClient, ServerApiVersion } from "mongodb";
 
-const uri = process.env.DB_URI!;
-
-if (!uri) {
-  throw new Error("DB_URI is missing.");
-}
-
 let client: MongoClient;
 let db: Db;
 
-declare global {
-  // eslint-disable-next-line no-var
-  var _mongoClient: MongoClient | undefined;
-}
+export async function connectDB() {
+  const uri = process.env.DB_URI;
 
-export async function getDB(): Promise<Db> {
-  if (db) return db;
-
-  if (!global._mongoClient) {
-    global._mongoClient = new MongoClient(uri, {
-      serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-      },
-    });
-
-    await global._mongoClient.connect();
-
-    console.log("✅ MongoDB Connected");
+  if (!uri) {
+    throw new Error("DB_URI is missing.");
   }
 
-  client = global._mongoClient;
+  client = new MongoClient(uri, {
+    serverApi: {
+      version: ServerApiVersion.v1,
+      strict: true,
+      deprecationErrors: true,
+    },
+  });
+
+  await client.connect();
+  await client.db("admin").command({ ping: 1 });
+
   db = client.db("skill_hub");
+
+  console.log("✅ MongoDB Connected Successfully");
+}
+
+export function getDB(): Db {
+  if (!db) {
+    throw new Error("Database is not connected.");
+  }
 
   return db;
 }
