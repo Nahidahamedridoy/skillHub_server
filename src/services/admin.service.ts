@@ -151,3 +151,24 @@ export async function deleteCourse(id: string) {
   await coursesCollection().deleteOne({ _id: courseId });
 }
 
+export async function getAdminStats() {
+  const totalCourses = await coursesCollection().countDocuments();
+  const approvedCourses = await coursesCollection().countDocuments({ status: "approved" });
+  const pendingCourses = await coursesCollection().countDocuments({ status: "pending" });
+  const rejectedCourses = await coursesCollection().countDocuments({ status: "rejected" });
+  
+  // Aggregate total students from all courses
+  const studentsResult = await coursesCollection().aggregate([
+    { $group: { _id: null, totalStudents: { $sum: "$studentsCount" } } }
+  ]).toArray();
+  
+  const totalStudents = studentsResult.length > 0 ? studentsResult[0].totalStudents : 0;
+
+  return {
+    totalCourses,
+    approvedCourses,
+    pendingCourses,
+    rejectedCourses,
+    totalStudents
+  };
+}

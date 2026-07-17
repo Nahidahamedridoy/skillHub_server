@@ -4,6 +4,7 @@ import {
   approveCourseHandler,
   rejectCourseHandler,
   deleteCourseHandler,
+  getAdminStatsHandler,
 } from "../controllers/admin.controller.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { verifyRole } from "../middleware/role.middleware.js";
@@ -15,6 +16,13 @@ router.get(
   verifyToken,
   verifyRole("admin"),
   getAdminCoursesHandler
+);
+
+router.get(
+  "/stats",
+  verifyToken,
+  verifyRole("admin"),
+  getAdminStatsHandler
 );
 
 router.patch(

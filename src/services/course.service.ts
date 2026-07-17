@@ -2,117 +2,55 @@ import { ObjectId } from "mongodb";
 import { coursesCollection } from "../models/course.model.js";
 import { Course } from "../types/course.types.js";
 
-interface CreateCourseInput {
-  title: string;
-  thumbnail: string;
-  shortDescription: string;
-  description: string;
-  category: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
-  price: number;
-  duration: string;
-  lessons?: string[];
-  requirements?: string[];
-  outcomes?: string[];
-  instructorId: string;
-  instructorName: string;
-}
+export async function createCourse(input: Partial<Course> & { instructorId: string; instructorName: string }) {
+  const { instructorId, instructorName, ...rest } = input;
 
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
-export async function createCourse(input: CreateCourseInput) {
-  const {
-    title,
-    thumbnail,
-    shortDescription,
-    description,
-    category,
-    level,
-    price,
-    duration,
-    lessons = [],
-    requirements = [],
-    outcomes = [],
-    instructorId,
-    instructorName,
-  } = input;
-
-  // Validate required fields
-  if (
-    !title ||
-    !thumbnail ||
-    !shortDescription ||
-    !description ||
-    !category ||
-    !level ||
-    price === undefined ||
-    price === null ||
-    !duration
-  ) {
-    throw new Error("All required fields must be provided");
-  }
-
-  if (typeof price !== "number" || price < 0) {
-    throw new Error("Price must be a non-negative number");
-  }
-
-  const validLevels = ["Beginner", "Intermediate", "Advanced"];
-  if (!validLevels.includes(level)) {
-    throw new Error("Level must be one of: Beginner, Intermediate, Advanced");
-  }
-
-  // Generate unique slug
-  let slug = generateSlug(title);
-  let isUnique = false;
-  let counter = 0;
-
-  while (!isUnique) {
-    const existing = await coursesCollection().findOne({ slug });
-    if (!existing) {
-      isUnique = true;
-    } else {
-      counter++;
-      slug = `${generateSlug(title)}-${counter}`;
-    }
+  if (!rest.title || !rest.category || !rest.price || !rest.imageUrl || !rest.duration) {
+    throw new Error("Missing required fields: title, category, price, imageUrl, duration");
   }
 
   const now = new Date();
 
-  const course: Course = {
-    title,
-    slug,
-    thumbnail,
-    shortDescription,
-    description,
-    category,
-    level,
-    price,
-    duration,
-    lessons,
-    requirements,
-    outcomes,
+  const course: Omit<Course, "_id" | "id"> = {
+    title: rest.title,
+    instructor: instructorName,
+    category: rest.category,
+    rating: rest.rating || 0,
+    reviewsCount: rest.reviewsCount || 0,
+    price: rest.price,
+    originalPrice: rest.originalPrice,
+    imageUrl: rest.imageUrl,
+    badge: rest.badge,
+    lessonsCount: rest.lessonsCount || 0,
+    duration: rest.duration,
+    status: "approved",
+    
+    description: rest.description,
+    descriptionParagraphs: rest.descriptionParagraphs || [],
+    studentsCount: rest.studentsCount || 0,
+    language: rest.language || "English (US)",
+    lastUpdated: rest.lastUpdated || now.toLocaleString('default', { month: 'long', year: 'numeric' }),
+    level: rest.level || "Beginner",
+    highlights: rest.highlights || [],
+    certificate: rest.certificate ?? true,
+    instructorDetails: rest.instructorDetails,
+    curriculum: rest.curriculum || [],
+    reviews: rest.reviews || [],
+
     instructorId: new ObjectId(instructorId),
-    instructorName,
-    status: "pending",
-    totalStudents: 0,
-    averageRating: 0,
     createdAt: now,
     updatedAt: now,
   };
 
   const result = await coursesCollection().insertOne(course);
-
-  return {
+  
+  const createdCourse = {
     _id: result.insertedId,
+    id: result.insertedId.toString(),
     ...course,
   };
+
+  return createdCourse;
 }
 
 export interface GetCoursesFilters {
@@ -135,7 +73,6 @@ export async function getCourses(filters: GetCoursesFilters) {
   if (status) {
     query.status = status;
   } else if (!instructorId) {
-    // If not querying an instructor's specific panel list, default to approved only
     query.status = "approved";
   }
 
@@ -158,6 +95,8 @@ export async function getCourses(filters: GetCoursesFilters) {
 
   const sort: any = {};
   if (sortByPrice) {
+    // Note: since price is a string like "$94.99", sorting in mongo won't be perfect.
+    // If needed, we could strip '$' and sort. For now, just sort by the string value.
     sort.price = sortByPrice === "desc" ? -1 : 1;
   } else {
     sort.createdAt = -1; // default sort
@@ -168,12 +107,17 @@ export async function getCourses(filters: GetCoursesFilters) {
   const skip = (pageNum - 1) * limitNum;
 
   const total = await coursesCollection().countDocuments(query);
-  const courses = await coursesCollection()
+  const rawCourses = await coursesCollection()
     .find(query)
     .sort(sort)
     .skip(skip)
     .limit(limitNum)
     .toArray();
+
+  const courses = rawCourses.map(c => ({
+    ...c,
+    id: c._id.toString()
+  }));
 
   const totalPages = Math.ceil(total / limitNum);
 
@@ -193,33 +137,22 @@ export async function getSingleCourse(id: string) {
     throw new Error("Invalid course id");
   }
 
+  // We don't filter by 'approved' here so instructors can preview their pending courses
   const course = await coursesCollection().findOne({
-    _id: new ObjectId(id),
-    status: "approved",
+    _id: new ObjectId(id)
   });
 
   if (!course) {
     throw new Error("Course not found");
   }
 
-  return course;
+  return {
+    ...course,
+    id: course._id.toString()
+  };
 }
 
-export interface UpdateCourseInput {
-  title?: string;
-  thumbnail?: string;
-  shortDescription?: string;
-  description?: string;
-  category?: string;
-  level?: "Beginner" | "Intermediate" | "Advanced";
-  price?: number;
-  duration?: string;
-  lessons?: string[];
-  requirements?: string[];
-  outcomes?: string[];
-}
-
-export async function updateCourse(id: string, instructorId: string, input: UpdateCourseInput) {
+export async function updateCourse(id: string, instructorId: string, input: Partial<Course>) {
   if (!ObjectId.isValid(id)) {
     throw new Error("Course not found");
   }
@@ -235,107 +168,14 @@ export async function updateCourse(id: string, instructorId: string, input: Upda
     throw new Error("Unauthorized");
   }
 
-  const updateData: any = {};
+  const updateData: any = { ...input };
+  
+  // Prevent overwriting critical fields
+  delete updateData._id;
+  delete updateData.id;
+  delete updateData.instructorId;
+  delete updateData.createdAt;
 
-  if (input.title !== undefined) {
-    if (!input.title.trim()) {
-      throw new Error("Title cannot be empty");
-    }
-    updateData.title = input.title;
-
-    if (input.title !== course.title) {
-      let slug = generateSlug(input.title);
-      let isUnique = false;
-      let counter = 0;
-
-      while (!isUnique) {
-        const existing = await coursesCollection().findOne({
-          slug,
-          _id: { $ne: courseId },
-        });
-        if (!existing) {
-          isUnique = true;
-        } else {
-          counter++;
-          slug = `${generateSlug(input.title)}-${counter}`;
-        }
-      }
-      updateData.slug = slug;
-    }
-  }
-
-  if (input.thumbnail !== undefined) {
-    if (!input.thumbnail.trim()) {
-      throw new Error("Thumbnail cannot be empty");
-    }
-    updateData.thumbnail = input.thumbnail;
-  }
-
-  if (input.shortDescription !== undefined) {
-    if (!input.shortDescription.trim()) {
-      throw new Error("Short description cannot be empty");
-    }
-    updateData.shortDescription = input.shortDescription;
-  }
-
-  if (input.description !== undefined) {
-    if (!input.description.trim()) {
-      throw new Error("Description cannot be empty");
-    }
-    updateData.description = input.description;
-  }
-
-  if (input.category !== undefined) {
-    if (!input.category.trim()) {
-      throw new Error("Category cannot be empty");
-    }
-    updateData.category = input.category;
-  }
-
-  if (input.level !== undefined) {
-    const validLevels = ["Beginner", "Intermediate", "Advanced"];
-    if (!validLevels.includes(input.level)) {
-      throw new Error("Level must be one of: Beginner, Intermediate, Advanced");
-    }
-    updateData.level = input.level;
-  }
-
-  if (input.price !== undefined) {
-    if (typeof input.price !== "number" || input.price < 0) {
-      throw new Error("Price must be a non-negative number");
-    }
-    updateData.price = input.price;
-  }
-
-  if (input.duration !== undefined) {
-    if (!input.duration.trim()) {
-      throw new Error("Duration cannot be empty");
-    }
-    updateData.duration = input.duration;
-  }
-
-  if (input.lessons !== undefined) {
-    if (!Array.isArray(input.lessons)) {
-      throw new Error("Lessons must be an array");
-    }
-    updateData.lessons = input.lessons;
-  }
-
-  if (input.requirements !== undefined) {
-    if (!Array.isArray(input.requirements)) {
-      throw new Error("Requirements must be an array");
-    }
-    updateData.requirements = input.requirements;
-  }
-
-  if (input.outcomes !== undefined) {
-    if (!Array.isArray(input.outcomes)) {
-      throw new Error("Outcomes must be an array");
-    }
-    updateData.outcomes = input.outcomes;
-  }
-
-  // Always update updatedAt
   updateData.updatedAt = new Date();
 
   await coursesCollection().updateOne(
@@ -344,7 +184,10 @@ export async function updateCourse(id: string, instructorId: string, input: Upda
   );
 
   const updatedCourse = await coursesCollection().findOne({ _id: courseId });
-  return updatedCourse;
+  return {
+    ...updatedCourse,
+    id: updatedCourse?._id.toString()
+  };
 }
 
 export async function deleteCourse(id: string, instructorId: string) {
@@ -365,4 +208,3 @@ export async function deleteCourse(id: string, instructorId: string) {
 
   await coursesCollection().deleteOne({ _id: courseId });
 }
-

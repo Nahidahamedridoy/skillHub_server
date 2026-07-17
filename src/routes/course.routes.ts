@@ -5,6 +5,7 @@ import {
   getSingleCourseHandler,
   updateCourseHandler,
   deleteCourseHandler,
+  getMyCoursesHandler,
 } from "../controllers/course.controller.js";
 import { verifyToken } from "../middleware/auth.middleware.js";
 import { verifyRole } from "../middleware/role.middleware.js";
@@ -19,6 +20,14 @@ router.post(
 );
 
 router.get("/", getCoursesHandler);
+
+router.get(
+  "/my",
+  verifyToken,
+  verifyRole("instructor"),
+  getMyCoursesHandler
+);
+
 router.get("/:id", getSingleCourseHandler);
 
 router.patch(

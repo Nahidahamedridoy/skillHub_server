@@ -4,6 +4,7 @@ import {
   approveCourse,
   rejectCourse,
   deleteCourse,
+  getAdminStats,
 } from "../services/admin.service.js";
 
 export async function getAdminCoursesHandler(req: Request, res: Response) {
@@ -158,3 +159,19 @@ export async function deleteCourseHandler(req: Request, res: Response) {
   }
 }
 
+export async function getAdminStatsHandler(req: Request, res: Response) {
+  try {
+    const stats = await getAdminStats();
+
+    res.status(200).json({
+      success: true,
+      message: "Admin stats retrieved successfully",
+      data: stats,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}

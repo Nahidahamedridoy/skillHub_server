@@ -108,6 +108,28 @@ export async function getSingleCourseHandler(req: Request, res: Response) {
   }
 }
 
+export async function getMyCoursesHandler(req: Request, res: Response) {
+  try {
+    const instructor = req.user!;
+    
+    const result = await getCourses({
+      instructorId: instructor.id,
+      limit: 1000,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Courses retrieved successfully",
+      data: result.courses,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
 export async function updateCourseHandler(req: Request, res: Response) {
   try {
     const { id } = req.params;
